@@ -14,7 +14,6 @@ httpx = "^0.28.1"
 pydantic = { extras = ["email"], version = "^2.11.7" }
 pydantic-extra-types = "^2.10.5"
 pycountry = "^24.6.1"
-pyjwt = "^2.10.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"

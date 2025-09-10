@@ -185,8 +185,13 @@ class PesapalClientV3:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self):
+    def __enter__(self) -> "PesapalClientV3":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[object],
+    ) -> None:
         self.close()
