@@ -1,3 +1,4 @@
+import contextlib
 import os
 from datetime import datetime, timedelta
 from uuid import uuid4
@@ -7,7 +8,7 @@ import respx
 from dotenv import load_dotenv
 from httpx import Response
 
-from pesapal_client import PesapalClientV3
+from pesapal_client.v3.client import PesapalClientV3
 from pesapal_client.v3.schemas import (
     BillingAddress,
     InitiatePaymentOrderRequest,
@@ -41,11 +42,13 @@ def client_sandbox():
     """PesapalClientV3 sandbox instance"""
     consumer_key = os.getenv("PESAPAL_CONSUMER_KEY", "test_key")
     consumer_secret = os.getenv("PESAPAL_CONSUMER_SECRET", "test_secret")
-    return PesapalClientV3(
+    client = PesapalClientV3(
         consumer_key=consumer_key,
         consumer_secret=consumer_secret,
         is_sandbox=True,
     )
+    with contextlib.closing(client):
+        yield client
 
 
 @pytest.fixture

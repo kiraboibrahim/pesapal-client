@@ -15,7 +15,7 @@ def test_auth_token_fetch(client_sandbox):
         mock.post("/Auth/RequestToken").mock(
             return_value=Response(200, json={"token": sample_token, "expiryDate": expiry})
         )
-        auth_token = client_sandbox.auth.get_auth_token()
+        auth_token = client_sandbox._get_auth_token()
         assert auth_token
 
 

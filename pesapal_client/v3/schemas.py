@@ -1,6 +1,6 @@
 import enum
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import AnyStr, Literal, Optional
 from uuid import UUID
 
@@ -15,18 +15,6 @@ from pydantic import (
 )
 from pydantic_extra_types.country import CountryAlpha2
 from pydantic_extra_types.currency_code import Currency
-
-
-class AuthToken(BaseModel):
-    token: str
-    expiry_date: datetime
-
-    def is_expired(self) -> bool:
-        now = datetime.now(timezone.utc)
-        return now >= self.expiry_date
-
-    def __str__(self) -> str:
-        return self.token
 
 
 class IPNRegistrationRequest(BaseModel):

@@ -2,7 +2,7 @@ import pytest
 import respx
 from httpx import Response
 
-from pesapal_client import PesapalException
+from pesapal_client.exceptions import PesapalException
 
 
 def test_pesapal_error_raises(client_sandbox):

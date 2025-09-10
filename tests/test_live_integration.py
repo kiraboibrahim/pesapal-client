@@ -4,8 +4,8 @@ from uuid import uuid4
 import pytest
 from dotenv import load_dotenv
 
-from pesapal_client import PesapalClientV3
 from pesapal_client.utils import is_jwt_expired
+from pesapal_client.v3.client import PesapalClientV3
 from pesapal_client.v3.schemas import (
     IPNRegistrationRequest,
     RefundRequest,
@@ -29,7 +29,7 @@ def client_live():
 
 @pytest.mark.live
 def test_auth_live(client_live):
-    token = client_live.auth.get_auth_token()
+    token = client_live._get_auth_token()
     assert token
     assert not is_jwt_expired(token)
 

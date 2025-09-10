@@ -9,7 +9,6 @@ from pesapal_client.exceptions import PesapalException
 from pesapal_client.utils import deep_json_parse, is_jwt_expired
 
 from .schemas import (
-    AuthToken,
     GetPaymentOrderStatusResponse,
     GetRegisteredIPNsResponse,
     GetSubscriptionStatusResponse,
@@ -21,25 +20,6 @@ from .schemas import (
     RefundRequest,
     RefundResponse,
 )
-
-
-class _AuthAPI:
-    def __init__(self, client: httpx.Client, consumer_key: str, consumer_secret: str):
-        self._client = client
-        self._consumer_key = consumer_key
-        self._consumer_secret = consumer_secret
-
-    def get_auth_token(self) -> str:
-        # Implement the logic to get an auth token using consumer_key and consumer_secret
-        endpoint = "/Auth/RequestToken"
-        payload = {
-            "consumer_key": self._consumer_key,
-            "consumer_secret": self._consumer_secret,
-        }
-        response = self._client.post(endpoint, json=payload)
-        data = response.json()
-        self._auth_token = AuthToken.model_validate({"token": data["token"], "expiry_date": data["expiryDate"]})
-        return self._auth_token.token
 
 
 class _IPNAPI:
@@ -118,6 +98,10 @@ class PesapalClientV3:
         if base_url is None:
             base_url = self.SANDBOX_BASE_URL if is_sandbox else self.PRODUCTION_BASE_URL
         self._base_url = base_url
+        self._consumer_key = consumer_key
+        self._consumer_secret = consumer_secret
+        self._auth_token = None
+        self._auth_token_expiry = None
         self._client = httpx.Client(
             base_url=self._base_url,
             event_hooks={
@@ -125,7 +109,6 @@ class PesapalClientV3:
                 "response": [self._raise_on_pesapal_errors],
             },
         )
-        self.auth = _AuthAPI(self._client, consumer_key, consumer_secret)
         self.ipn = _IPNAPI(self._client)
         self.one_time_payment = _OneTimePaymentAPI(self._client)
         self.subscription = _SubscriptionAPI(self._client)
@@ -171,16 +154,39 @@ class PesapalClientV3:
         except json.JSONDecodeError:
             return None
 
+    def _get_auth_token(self) -> str:
+        endpoint = "/Auth/RequestToken"
+        payload = {
+            "consumer_key": self._consumer_key,
+            "consumer_secret": self._consumer_secret,
+        }
+        response = self._client.post(endpoint, json=payload)
+        data = response.json()
+        self._auth_token = data["token"]
+        self._auth_token_expiry = data["expiryDate"]
+        return self._auth_token
+
+    def _is_token_expired(self) -> bool:
+        return not self._auth_token or is_jwt_expired(self._auth_token)
+
     def _ensure_valid_auth_token(self, request: httpx.Request) -> None:
-        # Skip token check for any path ending with /Auth/RequestToken
         if re.search(r"/Auth/RequestToken/?$", request.url.path):
             return
         is_authorization_header_present = "Authorization" in request.headers
         if is_authorization_header_present:
             current_token = request.headers["Authorization"].replace("Bearer ", "")
             if is_jwt_expired(current_token):
-                auth_token = self.auth.get_auth_token()
-                request.headers["Authorization"] = f"Bearer {auth_token}"
+                token = self._get_auth_token()
+                request.headers["Authorization"] = f"Bearer {token}"
         else:
-            auth_token = self.auth.get_auth_token()
-            request.headers["Authorization"] = f"Bearer {auth_token}"
+            token = self._get_auth_token()
+            request.headers["Authorization"] = f"Bearer {token}"
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
