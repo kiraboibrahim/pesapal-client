@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from typing import Optional
 
@@ -20,6 +21,8 @@ from .schemas import (
     RefundRequest,
     RefundResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class _IPNAPI:
@@ -105,8 +108,8 @@ class PesapalClientV3:
         self._client = httpx.Client(
             base_url=self._base_url,
             event_hooks={
-                "request": [self._ensure_valid_auth_token],
-                "response": [self._raise_on_pesapal_errors],
+                "request": [self._ensure_valid_auth_token, self._log_request],
+                "response": [self._raise_on_pesapal_errors, self._log_response],
             },
         )
         self.ipn = _IPNAPI(self._client)
@@ -143,12 +146,15 @@ class PesapalClientV3:
         # I have seen errors returned in different formats, so we try to handle them gracefully
         # 1. {"error": {"code": "...", "message": "...", "error_type": "..."}}
         # 2. {"message": {"error": {"code": "...", "message": "...", "error_type": "..."}}}
+        # 3. {"message": "Some error message", status: "500"}
         try:
             data = deep_json_parse(response.read().decode("utf-8"))
             if "error" in data:
                 return data["error"]
             elif "message" in data and isinstance(data["message"], dict) and "error" in data["message"]:
                 return data["message"]["error"]
+            elif "message" in data and isinstance(data["message"], str):
+                return {"message": data["message"], "code": str(data.get("status", "unknown"))}
             else:
                 return None
         except json.JSONDecodeError:
@@ -181,6 +187,21 @@ class PesapalClientV3:
         else:
             token = self._get_auth_token()
             request.headers["Authorization"] = f"Bearer {token}"
+
+    def _log_request(self, request: httpx.Request) -> None:
+        logger.info(f"HTTP Request: {request.method} {request.url}")
+        if request.content:
+            try:
+                logger.debug(f"Request body: {request.content.decode()}")
+            except Exception:
+                logger.debug("Request body (non-decodable)")
+
+    def _log_response(self, response: httpx.Response) -> None:
+        logger.info(f"HTTP Response: {response.request.method} {response.url} -> {response.status_code}")
+        try:
+            logger.debug(f"Response body: {response.text}")
+        except Exception:
+            logger.debug("Response body (non-decodable)")
 
     def close(self) -> None:
         self._client.close()

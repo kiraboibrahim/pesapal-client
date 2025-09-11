@@ -1,3 +1,6 @@
+from httpx import RequestError as HTTPXRequestError
+
+
 class PesapalException(Exception):
     def __init__(self, *, typ: str, code: str, message: str):
         super().__init__()
@@ -7,3 +10,6 @@ class PesapalException(Exception):
 
     def __str__(self):
         return f"({self.type} - {self.code}): {self.message}"
+
+
+RequestError = HTTPXRequestError
