@@ -1,8 +1,10 @@
 import json
 import logging
 import re
+import ssl
 from typing import Optional
 
+import certifi
 import httpx
 from pydantic import TypeAdapter
 
@@ -105,8 +107,10 @@ class PesapalClientV3:
         self._consumer_secret = consumer_secret
         self._auth_token = None
         self._auth_token_expiry = None
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
         self._client = httpx.Client(
             base_url=self._base_url,
+            verify=ssl_context,
             event_hooks={
                 "request": [self._ensure_valid_auth_token, self._log_request],
                 "response": [self._raise_on_pesapal_errors, self._log_response],
